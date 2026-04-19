@@ -1,0 +1,14 @@
+{
+    "disableAutoUpdate": true,
+    "name": "valkyrie",
+    "author": "jeff",
+    "description": "valk script xd",
+    "version": "1337",
+    "options": {
+        "niceName": "valkyrie",
+        "reloadable": true
+    },
+    "dependencies": {
+        "library": "https://raw.githubusercontent.com/Kaseaa/library/master/module.json"
+    }
+}
