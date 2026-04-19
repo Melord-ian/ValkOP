@@ -1,4 +1,100 @@
+const fs = require('fs');
+const path = require('path');
+
 module.exports = function supervalk(mod) {
+  const CONFIG_PATH = path.join(__dirname, 'config.json');
+  const CANCEL_END_TYPE = 12394123;
+
+  const defaultConfig = {
+    ENABLE_CANCEL_ENGINE: true,
+    TITANSBANE_CANCEL_DELAY: 700,
+    BLOODFLOWER_CANCEL_DELAY: 1125,
+    GODSFALL_FIRST_CANCEL_DELAY: 0,
+    GODSFALL_SECOND_CANCEL_DELAY: 0,
+    RAGNAROK_CANCEL_DELAY: 1250,
+    RECLAMATION_CANCEL_DELAY: 1,
+    RUNEBURST_CANCEL_DELAY: 550,
+    GUNGNIRS_BITE_CANCEL_DELAY: 550,
+    LEAPING_STRIKE_CANCEL_DELAY: 960,
+    MAELSTROM_CANCEL_DELAY: 1700,
+    SHINING_CRESCENT_NEUTRAL_CANCEL_DELAY: 0,
+    SHINING_CRESCENT_A_CANCEL_DELAY: 500,
+    SHINING_CRESCENT_B_CANCEL_DELAY: 950,
+    GLAIVE_STRIKE_CANCEL_DELAY: 1120,
+    GROUND_BASH_CANCEL_DELAY: 750,
+    TWILIGHT_WALTZ1_CANCEL_DELAY: 900,
+    TWILIGHT_WALTZ2_CANCEL_DELAY: 1025,
+    TWILIGHT_WALTZ3_CANCEL_DELAY: 1350,
+    TWILIGHT_WALTZ_CANCEL_DELAY: 1350,
+    SPINNING_DEATH_CANCEL_DELAY: 800,
+    SPINNING_DEATH_CANCEL_DELAY1: 200,
+    WIND_SLASH_CANCEL_DELAY: 575,
+    DREAM_SLASH_CANCEL_DELAY: 800,
+    BACK_STAB_CANCEL_DELAY: 0,
+    BALDERS_CANCEL_DELAY: 100
+  };
+
+  let config = loadConfig();
+  let cancelEngineEnabled = !!config.ENABLE_CANCEL_ENGINE;
+  let cancelSkills = buildCancelSkillMap(config);
+
+  function loadConfig() {
+    if (!fs.existsSync(CONFIG_PATH)) {
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaultConfig, null, 2));
+      return { ...defaultConfig };
+    }
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      return { ...defaultConfig, ...parsed };
+    } catch (e) {
+      mod.log(`[ValkOP] Failed to read config.json, using defaults. ${e.message}`);
+      return { ...defaultConfig };
+    }
+  }
+
+  function addCancelSkill(map, key, delay, fixedDelay = false) {
+    if (typeof delay === 'number') {
+      map[key] = { delay, fixedDelay };
+    }
+  }
+
+  function buildCancelSkillMap(cfg) {
+    const map = {};
+    addCancelSkill(map, '8-1', cfg.TITANSBANE_CANCEL_DELAY);
+    addCancelSkill(map, '13', cfg.BLOODFLOWER_CANCEL_DELAY);
+    addCancelSkill(map, '25-31', cfg.GODSFALL_FIRST_CANCEL_DELAY);
+    addCancelSkill(map, '25-32', cfg.GODSFALL_SECOND_CANCEL_DELAY);
+    addCancelSkill(map, '12', cfg.RAGNAROK_CANCEL_DELAY, true);
+    addCancelSkill(map, '19', cfg.RECLAMATION_CANCEL_DELAY, true);
+    addCancelSkill(map, '16', cfg.RUNEBURST_CANCEL_DELAY, true);
+    addCancelSkill(map, '23', cfg.GUNGNIRS_BITE_CANCEL_DELAY);
+    addCancelSkill(map, '6', cfg.LEAPING_STRIKE_CANCEL_DELAY);
+    addCancelSkill(map, '5', cfg.MAELSTROM_CANCEL_DELAY);
+    addCancelSkill(map, '11-0', cfg.SHINING_CRESCENT_NEUTRAL_CANCEL_DELAY);
+    addCancelSkill(map, '11-30', cfg.SHINING_CRESCENT_A_CANCEL_DELAY);
+    addCancelSkill(map, '11-31', cfg.SHINING_CRESCENT_B_CANCEL_DELAY);
+    addCancelSkill(map, '3', cfg.GLAIVE_STRIKE_CANCEL_DELAY);
+    addCancelSkill(map, '9', cfg.GROUND_BASH_CANCEL_DELAY);
+    addCancelSkill(map, '10', cfg.DREAM_SLASH_CANCEL_DELAY, true);
+    addCancelSkill(map, '20', cfg.BACK_STAB_CANCEL_DELAY);
+    addCancelSkill(map, '17', cfg.BALDERS_CANCEL_DELAY);
+    addCancelSkill(map, '15', cfg.WIND_SLASH_CANCEL_DELAY);
+    addCancelSkill(map, '24-0', cfg.TWILIGHT_WALTZ1_CANCEL_DELAY);
+    addCancelSkill(map, '24-1', cfg.TWILIGHT_WALTZ1_CANCEL_DELAY);
+    addCancelSkill(map, '24-2', cfg.TWILIGHT_WALTZ2_CANCEL_DELAY);
+    addCancelSkill(map, '24-4', cfg.TWILIGHT_WALTZ_CANCEL_DELAY);
+    addCancelSkill(map, '7-2', cfg.SPINNING_DEATH_CANCEL_DELAY);
+    return map;
+  }
+
+  function reloadCancelConfig() {
+    config = loadConfig();
+    cancelEngineEnabled = !!config.ENABLE_CANCEL_ENGINE;
+    cancelSkills = buildCancelSkillMap(config);
+    return cancelEngineEnabled;
+  }
+
   // Variables
   let cid;
   let myPosition;
@@ -17,6 +113,8 @@ module.exports = function supervalk(mod) {
   let gun_enab = false;
   let cast_gun = false;
   let cast_cresc = false;
+  let moving = false;
+  let cancelTimeout = null;
 
   // Timeouts
   let isCD_overhead_timeOut = null;
@@ -103,9 +201,22 @@ module.exports = function supervalk(mod) {
   let monsters = [];
   let block_hit = false;
 
-  mod.command.add('valk', () => {
-    enabled = !enabled;
-    mod.command.message(`Salchy's valk mod is now ${enabled ? 'en' : 'dis'}abled.`);
+  mod.command.add('valk', {
+    $default() {
+      enabled = !enabled;
+      mod.command.message(`Salchy's valk mod is now ${enabled ? 'en' : 'dis'}abled.`);
+    }
+  });
+
+  mod.command.add('valkc', {
+    $default() {
+      cancelEngineEnabled = !cancelEngineEnabled;
+      mod.command.message(`Cancel-delay engine is now ${cancelEngineEnabled ? 'enabled' : 'disabled'}.`);
+    },
+    reload() {
+      const state = reloadCancelConfig();
+      mod.command.message(`Cancel-delay config reloaded (${state ? 'enabled' : 'disabled'}).`);
+    }
   });
 
   mod.hook('S_LOGIN', 14, (event) => {
@@ -290,6 +401,9 @@ module.exports = function supervalk(mod) {
   mod.hook('S_EACH_SKILL_RESULT', 14, (event) => {
     if (!enabled) return;
     if (mod.game.me.class !== 'glaiver') return;
+    if (!cancelTimeout || event.target !== mod.game.me.gameId || !event.reaction.enable) return;
+    mod.clearTimeout(cancelTimeout);
+    cancelTimeout = null;
   });
 
   mod.hook('S_SPAWN_NPC', 11, (event) => {
@@ -393,6 +507,50 @@ module.exports = function supervalk(mod) {
       bossloc = event.loc;
       bossw = event.w;
     }
+
+    if (!cancelEngineEnabled || event.gameId !== mod.game.me.gameId) return;
+
+    const skillId = Math.floor(event.skill.id / 10000);
+    const skillSubId = event.skill.id % 100;
+    const key = `${skillId}-${skillSubId}`;
+    const skillCfg = cancelSkills[skillId] || cancelSkills[key];
+    if (!skillCfg) return;
+
+    if (
+      (event.skill.id === 110400 ||
+        event.skill.id === 110430 ||
+        event.skill.id === 70900 ||
+        event.skill.id === 70901 ||
+        event.skill.id === 151100 ||
+        event.skill.id === 151130) &&
+      moving
+    ) {
+      return;
+    }
+
+    if (cancelTimeout) {
+      mod.clearTimeout(cancelTimeout);
+      cancelTimeout = null;
+    }
+
+    const aspd = mod.game.me.aspd && mod.game.me.aspd > 0 ? mod.game.me.aspd : 1;
+    const timeoutDelay = skillCfg.fixedDelay ? skillCfg.delay : skillCfg.delay / aspd;
+
+    cancelTimeout = mod.setTimeout(() => {
+      mod.toClient('S_ACTION_END', 5, {
+        gameId: event.gameId,
+        loc: {
+          x: event.loc.x,
+          y: event.loc.y,
+          z: event.loc.z
+        },
+        w: event.w,
+        templateId: event.templateId,
+        skill: event.skill.id,
+        type: CANCEL_END_TYPE,
+        id: event.id
+      });
+    }, timeoutDelay);
   });
 
   mod.hook('S_ACTION_END', 5, (event) => {
@@ -401,6 +559,22 @@ module.exports = function supervalk(mod) {
     if (bossid == event.gameId) {
       bossloc = event.loc;
       bossw = event.w;
+    }
+
+    if (!cancelEngineEnabled || event.gameId !== mod.game.me.gameId) return;
+
+    const skillId = Math.floor(event.skill.id / 10000);
+    const skillSubId = event.skill.id % 100;
+    const key = `${skillId}-${skillSubId}`;
+
+    if (!cancelTimeout || (!cancelSkills[skillId] && !cancelSkills[key])) return;
+
+    mod.clearTimeout(cancelTimeout);
+    cancelTimeout = null;
+
+    if (event.type === CANCEL_END_TYPE) {
+      event.type = 4;
+      return true;
     }
   });
 
@@ -427,6 +601,7 @@ module.exports = function supervalk(mod) {
     if (mod.game.me.class !== 'glaiver') return;
     myPosition = event.loc;
     myAngle = event.w;
+    moving = event.moving;
     replaced = false;
     let sInfo = getSkillInfo(event.skill.id);
     if (sInfo.group === 1 || sInfo.group === 2) {
@@ -557,6 +732,14 @@ module.exports = function supervalk(mod) {
     if (mod.game.me.class !== 'glaiver') return;
     myPosition = event.loc;
     myAngle = event.w;
+  });
+
+  mod.hook('C_CANCEL_SKILL', 3, () => {
+    if (!enabled) return;
+    if (mod.game.me.class !== 'glaiver') return;
+    if (!cancelTimeout) return;
+    mod.clearTimeout(cancelTimeout);
+    cancelTimeout = null;
   });
 
   function getSkillInfo(id) {

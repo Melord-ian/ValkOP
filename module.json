@@ -5,7 +5,8 @@
   "description": "Valkyrie/Glaiver automation module with cooldown, rune, and boss-target logic.",
   "main": "index.js",
   "commands": [
-    "valk"
+    "valk",
+    "valkc"
   ],
   "defs": {
     "S_LOGIN": 14,
@@ -25,6 +26,7 @@
     "S_PLAYER_STAT_UPDATE": 14,
     "C_PLAYER_LOCATION": 5,
     "C_START_SKILL": 7,
+    "C_CANCEL_SKILL": 3,
     "C_START_INSTANCE_SKILL": 7,
     "C_PRESS_SKILL": 4,
     "S_CUSTOM_STYLE_SYSTEM_MESSAGE": 1,
