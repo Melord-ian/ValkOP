@@ -1,0 +1,33 @@
+{
+  "name": "ValkOP",
+  "author": "melo",
+  "version": "1.0.0",
+  "description": "Valkyrie/Glaiver automation module with cooldown, rune, and boss-target logic.",
+  "main": "index.js",
+  "commands": [
+    "valk"
+  ],
+  "defs": {
+    "S_LOGIN": 14,
+    "S_WEAK_POINT": 1,
+    "S_SKILL_CATEGORY": 3,
+    "S_START_COOLTIME_SKILL": 3,
+    "S_EACH_SKILL_RESULT": 14,
+    "S_SPAWN_NPC": 11,
+    "S_BOSS_GAGE_INFO": 3,
+    "S_NPC_LOCATION": 3,
+    "S_DESPAWN_NPC": 3,
+    "S_START_USER_PROJECTILE": 9,
+    "C_HIT_USER_PROJECTILE": 4,
+    "S_ACTION_STAGE": 9,
+    "S_ACTION_END": 5,
+    "S_CANNOT_START_SKILL": 4,
+    "S_PLAYER_STAT_UPDATE": 14,
+    "C_PLAYER_LOCATION": 5,
+    "C_START_SKILL": 7,
+    "C_START_INSTANCE_SKILL": 7,
+    "C_PRESS_SKILL": 4,
+    "S_CUSTOM_STYLE_SYSTEM_MESSAGE": 1,
+    "S_PLAY_SOUND": 1
+  }
+}
